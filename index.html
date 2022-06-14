@@ -1,0 +1,181 @@
+<html>
+    <head>
+        <title>Remote</title>
+        <script src="https://cdn.bootcdn.net/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+        <script src="https://cdn.bootcdn.net/ajax/libs/jquery-mousewheel/3.1.9/jquery.mousewheel.min.js"></script>
+    </head>
+    <script>
+         	var ws;
+            var isEnter = false;
+            var remoteWidth = 1920;
+            var remoteHeight = 1080;
+            var widthRadio = remoteWidth / 1000;
+            var heightRadio = remoteHeight / 600;
+
+            function OpenWS() {
+                initWS();
+                initEvent();
+            }
+
+            function initWS() {
+                ws = new WebSocket("ws://192.168.1.105:10086/Echo");
+                // ws = new WebSocket("ws://127.0.0.1:10086/Echo");
+                ws.onopen = function () {
+                    console.log("Openened connection to websocket");
+
+                };
+                ws.onclose = function () {
+                    console.log("Close connection to websocket");
+                    
+                    // 断线重连
+                    initWS();
+                }
+
+                ws.onmessage = function (e) {
+                    // console.log(e.data)
+                    var blob = new Blob([e.data], { type: "image/jpg" });
+                    var url = URL.createObjectURL(blob);
+                    var image = document.getElementById("desktop");
+                    image.src = url;
+                }
+            }
+
+            function initEvent(){
+                // $(window).blur(function() {
+                //     alert("关闭");
+                //     return true;
+                // });
+
+                //禁用文本选择
+                document.onselectstart = function(e){
+                    e = window.event || e;
+                    if(window.event){
+                        try{e.keyCode = 0;}catch(e){}
+                        e.returnValue = false;
+                    }else{
+                        e.preventDefault();
+                    }
+                };
+                
+                //禁用右键菜单
+                $(document).contextmenu(function(e){
+                    e = window.event || e;
+
+                    if(isEnter)
+                        sendRightClick(e.offsetX * widthRadio, e.offsetY * heightRadio, 1);
+
+                    if(window.event){
+                        try{e.keyCode = 0;}catch(e){}
+                        e.returnValue = false;
+                    }else{
+                        e.preventDefault();
+                    }
+                });
+
+                $(document).keydown(function (e) {
+                    e = window.event || e;
+                    var keycode = e.keyCode || e.which
+                    // console.log('Down' + e.keyCode);
+                    if(isEnter)
+                        sendKeyDown(keycode);
+                    if(e.ctrlKey || e.altKey || e.shiftKey || (keycode > 111 && keycode <124)){
+                        if(window.event){
+                            try{e.keyCode = 0;}catch(e){}
+                            e.returnValue = false;
+                        }else{
+                            e.preventDefault();
+                        }
+                        // window.event.returnValue = false;
+                    }
+
+                    // if (event.altKey && event.keyCode == 115)//屏蔽Alt+F4  
+                    // {
+                    //     alert("test");
+                    //     return false;
+                    // }
+                });
+
+                $(document).keyup(function(e) {
+                    var keycode = e.keyCode || e.which
+                    // console.log('up' + e.keyCode);
+                    if(isEnter)
+                        sendKeyUp(keycode)
+                });
+
+                $(document).mousemove(function(e) {
+                    if(isEnter)
+                        sendMouseMove(e.offsetX * widthRadio, e.offsetY * heightRadio);
+                });
+
+                $(document).click(function(e) { 
+                    console.log('click');
+                    if(isEnter)
+                        sendLeftClick(e.offsetX * widthRadio, e.offsetY * heightRadio);
+                });
+
+                $(document).mousedown(function(e){
+                    // console.log('mouse down');
+                    if(isEnter)
+                    sendMouseLeftDown(e.offsetX * widthRadio, e.offsetY * heightRadio);
+                });
+
+                $(document).mouseup(function(e) {
+                    // console.log('mouse up');
+                    if(isEnter)
+                        sendMouseLeftUp(e.offsetX * widthRadio, e.offsetY * heightRadio);
+                });
+
+                $(window).mousewheel(function(e) {
+                    // console.log(e);
+                    sendMouseWheel(e.offsetX * widthRadio, e.offsetY * heightRadio, e.deltaY, e.deltaFactor);
+                });
+                
+            }
+
+            function sendKeyDown(keyCode){
+                ws.send("{'type':0, 'key':" + keyCode + "}")
+            }
+            
+            function sendKeyUp(keyCode){
+                ws.send("{'type':1, 'key':" + keyCode + "}")
+            }
+
+            function sendMouseMove(dx, dy){
+                ws.send("{'type':2, 'x':" + dx + ", 'y':" + dy +"}");
+            }
+
+            function sendLeftClick(dx, dy){
+                ws.send("{'type':3, 'x':" + dx + ", 'y':" + dy + "}");
+            }
+            
+            function sendRightClick(dx, dy){
+                ws.send("{'type':4, 'x':" + dx + ", 'y':" + dy + "}");
+            }
+
+            function sendMouseLeftDown(dx, dy){
+                ws.send("{'type':5, 'x':" + dx + ", 'y':" + dy + "}");
+            }
+            
+            function sendMouseLeftUp(dx, dy){
+                ws.send("{'type':6, 'x':" + dx + ", 'y':" + dy + "}");
+            }
+
+            function sendMouseWheel(dx, dy, deltaY, deltaFactor) {
+                ws.send("{'type':7, 'x':" + dx + ", 'y':" + dy + ", 'deltaY':" + deltaY + ", 'deltaFactor':" + deltaFactor + "}");
+
+            }
+
+            function imgMouseEnter(){
+                isEnter = true;
+            }
+
+            function imgMouseLeave(){
+                isEnter = false;
+            }
+
+    </script>
+    <body>
+        <button onclick="OpenWS()">打开WebSocket</button>
+        <img id="desktop" width="1000" height="600" draggable="false" onmouseenter="imgMouseEnter()" onmouseleave="imgMouseLeave()"/>
+    </body>
+</html>
